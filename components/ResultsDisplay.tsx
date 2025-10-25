@@ -1,4 +1,3 @@
-
 import React from 'react';
 import type { AnalysisResult, Issue } from '../types';
 
@@ -59,19 +58,6 @@ export const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ result, onReset 
           </div>
         </div>
       )}
-
-      <div className="flex flex-col sm:flex-row gap-4 pt-4 border-t border-slate-700">
-        {!isSafe && (
-            <>
-                <button className="w-full sm:w-auto flex-1 order-2 sm:order-1 py-2 px-4 border border-amber-500 rounded-md shadow-sm text-sm font-medium text-amber-400 hover:bg-amber-500/10 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 focus:ring-amber-500">
-                Quarantine
-                </button>
-                <button className="w-full sm:w-auto flex-1 order-1 sm:order-2 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-slate-900 bg-slate-300 hover:bg-slate-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 focus:ring-slate-400">
-                Approve Anyway
-                </button>
-            </>
-        )}
-      </div>
 
        <button
         onClick={onReset}
