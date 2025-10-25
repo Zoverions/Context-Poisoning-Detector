@@ -1,0 +1,5 @@
+{
+  "name": "RAG Context-Poisoning Detector",
+  "description": "An application to detect structural spoofing and context-poisoning in documents intended for Retrieval-Augmented Generation (RAG) systems. It analyzes documents for mismatches between textual claims and structural data like tables, quarantining suspicious files for review.",
+  "requestFramePermissions": []
+}
