@@ -11,6 +11,11 @@ export interface AnalysisResult {
   issues?: Issue[];
 }
 
+export interface FileAnalysisResult {
+  fileName: string;
+  result: AnalysisResult;
+}
+
 export enum AppState {
   Initial = 'initial',
   Loading = 'loading',
