@@ -71,7 +71,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onAnalyze, isLoading, pr
       </div>
 
       <div className="space-y-4">
-        <label htmlFor="file-upload" className="block text-sm font-medium text-slate-300">Upload one or more files (.txt, .docx, .md)</label>
+        <label htmlFor="file-upload" className="block text-sm font-medium text-slate-300">Upload one or more files (.txt, .docx, .md, .pdf, .csv)</label>
         <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-slate-600 border-dashed rounded-md hover:border-cyan-500 transition-colors">
           <div className="space-y-1 text-center">
             <svg className="mx-auto h-12 w-12 text-slate-500" stroke="currentColor" fill="none" viewBox="0 0 48 48" aria-hidden="true">
@@ -80,11 +80,11 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onAnalyze, isLoading, pr
             <div className="flex text-sm text-slate-400">
               <label htmlFor="file-upload" className="relative cursor-pointer bg-slate-800 rounded-md font-medium text-cyan-400 hover:text-cyan-300 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-offset-slate-900 focus-within:ring-cyan-500">
                 <span>Upload files</span>
-                <input id="file-upload" name="file-upload" type="file" className="sr-only" accept=".txt,.docx,.md" onChange={handleFileChange} multiple />
+                <input id="file-upload" name="file-upload" type="file" className="sr-only" accept=".txt,.docx,.md,.pdf,.csv" onChange={handleFileChange} multiple />
               </label>
               <p className="pl-1">or drag and drop</p>
             </div>
-            <p className="text-xs text-slate-500">Plain text, DOCX, and Markdown files are supported</p>
+            <p className="text-xs text-slate-500">Plain text, DOCX, PDF, CSV, and Markdown files are supported</p>
           </div>
         </div>
       </div>

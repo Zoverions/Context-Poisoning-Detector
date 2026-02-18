@@ -1,9 +1,9 @@
 import React, { useState, useCallback } from 'react';
-import mammoth from 'mammoth';
 import { FileUpload } from './components/FileUpload';
 import { ResultsDisplay } from './components/ResultsDisplay';
 import { analyzeDocument } from './services/geminiService';
 import { AppState } from './types';
+import { parseFile } from './utils/fileParsers';
 import type { FileAnalysisResult } from './types';
 
 const App: React.FC = () => {
@@ -22,23 +22,8 @@ const App: React.FC = () => {
         const file = files[i];
         try {
             setProgressText(`Processing "${file.name}" (${i + 1} of ${files.length})...`);
-            const extension = file.name.split('.').pop()?.toLowerCase() || '';
-            let text = '';
             
-            switch(extension) {
-                case 'txt':
-                case 'md':
-                    text = await file.text();
-                    break;
-                case 'docx':
-                    const arrayBuffer = await file.arrayBuffer();
-                    const mammothResult = await mammoth.convertToHtml({ arrayBuffer });
-                    const doc = new DOMParser().parseFromString(mammothResult.value, 'text/html');
-                    text = doc.body.textContent || "";
-                    break;
-                default:
-                    throw new Error(`Unsupported file type: .${extension}. Please use .txt, .md, or .docx.`);
-            }
+            const text = await parseFile(file);
 
             if (!text.trim()) {
                 results.push({
