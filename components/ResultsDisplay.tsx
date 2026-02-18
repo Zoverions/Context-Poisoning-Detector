@@ -74,8 +74,30 @@ const ResultCard: React.FC<{ fileResult: FileAnalysisResult }> = ({ fileResult }
 }
 
 export const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ results, onReset }) => {
+    const [filter, setFilter] = useState<'all' | 'safe' | 'threats'>('all');
+
     const safeCount = results.filter(r => r.result.isSafe).length;
     const threatCount = results.length - safeCount;
+
+    const filteredResults = results.filter(r => {
+        if (filter === 'all') return true;
+        if (filter === 'safe') return r.result.isSafe;
+        if (filter === 'threats') return !r.result.isSafe;
+        return true;
+    });
+
+    const handleExport = () => {
+        const dataStr = JSON.stringify(results, null, 2);
+        const blob = new Blob([dataStr], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `scan-results-${new Date().toISOString()}.json`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    };
 
     return (
         <div className="w-full max-w-4xl mx-auto bg-slate-800/50 rounded-2xl shadow-lg border border-slate-700 p-6 md:p-8 space-y-6">
@@ -87,10 +109,48 @@ export const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ results, onReset
                 </p>
             </div>
             
+            <div className="flex flex-col sm:flex-row justify-between items-center gap-4 bg-slate-800/80 p-3 rounded-lg border border-slate-700">
+                <div className="flex space-x-2">
+                    <button
+                        onClick={() => setFilter('all')}
+                        className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${filter === 'all' ? 'bg-cyan-600 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}
+                    >
+                        All
+                    </button>
+                    <button
+                        onClick={() => setFilter('safe')}
+                         className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${filter === 'safe' ? 'bg-green-600 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}
+                    >
+                        Safe ({safeCount})
+                    </button>
+                    <button
+                        onClick={() => setFilter('threats')}
+                         className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${filter === 'threats' ? 'bg-rose-600 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}
+                    >
+                        Threats ({threatCount})
+                    </button>
+                </div>
+                <button
+                    onClick={handleExport}
+                    className="flex items-center px-3 py-1.5 text-sm font-medium text-slate-300 bg-slate-700 rounded-md hover:bg-slate-600 transition-colors border border-slate-600"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                    Export JSON
+                </button>
+            </div>
+
             <div className="space-y-4">
-                {results.map((res, index) => (
-                    <ResultCard key={`${res.fileName}-${index}`} fileResult={res} />
-                ))}
+                {filteredResults.length > 0 ? (
+                    filteredResults.map((res, index) => (
+                        <ResultCard key={`${res.fileName}-${index}`} fileResult={res} />
+                    ))
+                ) : (
+                    <div className="text-center py-8 text-slate-500 italic">
+                        No documents match the selected filter.
+                    </div>
+                )}
             </div>
 
             <button
