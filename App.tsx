@@ -6,6 +6,12 @@ import { AppState } from './types';
 import { parseFile } from './utils/fileParsers';
 import type { FileAnalysisResult } from './types';
 
+const unknownResult = (summary: string) => ({
+  status: 'unknown' as const,
+  summary,
+  issues: [],
+});
+
 const App: React.FC = () => {
   const [appState, setAppState] = useState<AppState>(AppState.Initial);
   const [analysisResults, setAnalysisResults] = useState<FileAnalysisResult[]>([]);
@@ -18,45 +24,34 @@ const App: React.FC = () => {
     setAnalysisResults([]);
     const results: FileAnalysisResult[] = [];
 
-    for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        try {
-            setProgressText(`Processing "${file.name}" (${i + 1} of ${files.length})...`);
-            
-            const text = await parseFile(file);
+    for (let i = 0; i < files.length; i += 1) {
+      const file = files[i];
+      try {
+        setProgressText(`Extracting "${file.name}" (${i + 1} of ${files.length})...`);
+        const text = await parseFile(file);
 
-            if (!text.trim()) {
-                results.push({
-                    fileName: file.name,
-                    result: { isSafe: true, summary: "File is empty or contains no extractable text." }
-                });
-                continue;
-            }
-            
-            setProgressText(`Analyzing "${file.name}" (${i + 1} of ${files.length})...`);
-            const analysisResult = await analyzeDocument(text);
-            results.push({ fileName: file.name, result: analysisResult });
-
-        } catch (err) {
-             const errorMessage = err instanceof Error ? err.message : "An unknown error occurred.";
-             // If geminiService throws, it's a critical API error that should stop the process.
-             if (errorMessage.startsWith("Failed to analyze document")) {
-                setError(`Analysis stopped due to an API error. ${errorMessage}`);
-                setAppState(AppState.Error);
-                setProgressText('');
-                return; // Stop processing further files
-             }
-             // Otherwise, it's a file-specific error (e.g., parsing, unsupported type)
-             results.push({
-                 fileName: file.name,
-                 result: { 
-                     isSafe: false, 
-                     summary: `Could not process file: ${errorMessage}`,
-                     issues: []
-                 }
-             });
+        if (!text.trim()) {
+          results.push({
+            fileName: file.name,
+            result: unknownResult(
+              'No extractable text was found. This file was not assessed and requires separate review.',
+            ),
+          });
+          continue;
         }
+
+        setProgressText(`Advisory review of "${file.name}" (${i + 1} of ${files.length})...`);
+        const analysisResult = await analyzeDocument(text);
+        results.push({ fileName: file.name, result: analysisResult });
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred.';
+        results.push({
+          fileName: file.name,
+          result: unknownResult(`Unable to assess this file: ${errorMessage}`),
+        });
+      }
     }
+
     setAnalysisResults(results);
     setAppState(AppState.Results);
     setProgressText('');
@@ -73,13 +68,21 @@ const App: React.FC = () => {
     switch (appState) {
       case AppState.Initial:
       case AppState.Loading:
-        return <FileUpload onAnalyze={handleAnalyze} isLoading={appState === AppState.Loading} progressText={progressText} />;
+        return (
+          <FileUpload
+            onAnalyze={handleAnalyze}
+            isLoading={appState === AppState.Loading}
+            progressText={progressText}
+          />
+        );
       case AppState.Results:
-        return analysisResults.length > 0 && <ResultsDisplay results={analysisResults} onReset={handleReset} />;
+        return analysisResults.length > 0 && (
+          <ResultsDisplay results={analysisResults} onReset={handleReset} />
+        );
       case AppState.Error:
         return (
           <div className="w-full max-w-3xl mx-auto text-center bg-rose-900/30 border border-rose-500/50 rounded-xl p-8">
-            <h2 className="text-2xl font-bold text-rose-400">Analysis Failed</h2>
+            <h2 className="text-2xl font-bold text-rose-400">Unable to continue</h2>
             <p className="text-slate-300 mt-2">{error}</p>
             <button
               onClick={handleReset}
@@ -98,19 +101,20 @@ const App: React.FC = () => {
     <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4 selection:bg-cyan-300 selection:text-cyan-900">
       <div className="w-full p-4">
         <header className="text-center mb-10">
-            <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-slate-200 to-cyan-400">
-                Context-Poisoning Detector
-            </h1>
-            <p className="mt-3 max-w-2xl mx-auto text-lg text-slate-400">
-                Safeguarding RAG systems against structural spoofing attacks.
-            </p>
+          <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-slate-200 to-cyan-400">
+            Context-Poisoning Detector
+          </h1>
+          <p className="mt-3 max-w-2xl mx-auto text-lg text-slate-400">
+            Experimental RAG ingestion triage for spotting internal prose-versus-structure mismatches.
+          </p>
+          <p className="mt-2 max-w-2xl mx-auto text-sm text-amber-300/90">
+            Advisory only. “No mismatch detected” is not proof that a document is safe or trustworthy.
+          </p>
         </header>
-        <main className="flex justify-center">
-            {renderContent()}
-        </main>
+        <main className="flex justify-center">{renderContent()}</main>
       </div>
-       <footer className="text-center py-8 text-slate-500 text-sm">
-        <p>Powered by Gemini. Built for enterprise-grade AI security.</p>
+      <footer className="text-center py-8 text-slate-500 text-sm max-w-3xl">
+        <p>Model output is untrusted evidence for human review, not an autonomous security decision.</p>
       </footer>
     </div>
   );
