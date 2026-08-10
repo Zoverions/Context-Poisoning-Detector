@@ -1,0 +1,85 @@
+name: Context Detector Read-Only Lock Candidate
+
+on:
+  push:
+    branches:
+      - agent/status-and-scope-2026-08
+    paths:
+      - ".github/workflows/context-lock-candidate.yml"
+      - "package.json"
+      - "package-lock.json"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: context-detector-read-only-lock-candidate
+  cancel-in-progress: true
+
+jobs:
+  candidate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out source without write credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Generate reviewed dependency candidate in workspace only
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp package.json "$RUNNER_TEMP/package.before.json"
+          npm install mammoth@1.12.1 --save-exact --package-lock-only
+          npm audit fix --package-lock-only
+          node - <<'NODE'
+          const fs = require('fs');
+          const before = JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP + '/package.before.json', 'utf8'));
+          const after = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+          const expected = JSON.parse(JSON.stringify(before));
+          expected.dependencies.mammoth = '1.12.1';
+          if (JSON.stringify(after) !== JSON.stringify(expected)) {
+            console.error('package.json changed beyond the reviewed mammoth update');
+            process.exit(1);
+          }
+          NODE
+          echo '=== candidate diff stat ==='
+          git diff --stat -- package.json package-lock.json
+          echo '=== package.json candidate diff ==='
+          git diff -- package.json
+
+      - name: Install exact candidate graph
+        run: npm ci
+
+      - name: Check server syntax
+        run: node --check server.mjs
+
+      - name: Test candidate graph
+        run: npm test
+
+      - name: Build candidate graph
+        run: npm run build
+
+      - name: Audit candidate production graph
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Audit candidate full graph
+        run: npm audit --audit-level=high
+
+      - name: Upload reviewed candidate files
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.0
+        with:
+          name: context-detector-dependency-candidate-${{ github.sha }}
+          path: |
+            package.json
+            package-lock.json
+          if-no-files-found: error
+          retention-days: 3
