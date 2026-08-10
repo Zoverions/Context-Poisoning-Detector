@@ -1,26 +1,54 @@
 # Portfolio status and threat boundary
 
-Evidence snapshot: `e8031296af538d898c389a0983dc10a53781407c` (2026-08-09 review)
+Status date: 2026-08-10
 
 ## Current status
 
-This repository is an experimental ingestion-triage UI. The default-branch baseline was skipped because no reproducible test command was established, and no accuracy, security, or production claim has been verified.
+Context Poisoning Detector is an **experimental RAG-ingestion triage prototype**. It is not an autonomous security authority and is not approved for public or sensitive-document deployment.
+
+The current hardening branch implements a server-side Gemini credential boundary, bounded local parsing, explicit advisory result states, fail-closed handling for unknown/error conditions, deterministic response validation, and CI-bound parser/client/server tests. These controls reduce known prototype risks but do not establish detector accuracy or production readiness.
+
+## Current result semantics
+
+The application has three result states:
+
+- `no_issue_detected` — no internal prose-versus-structure mismatch was identified in the extracted text; **not** a safety or trust verdict;
+- `review` — concrete potential mismatches were identified for human review;
+- `unknown` — the file was not successfully assessed because extraction, validation, provider access, or response validation failed.
+
+No result may autonomously approve, quarantine, delete, block, trust, or authorize content.
 
 ## Threat model
 
-All document text, metadata, filenames, archives, links, embedded instructions, and model output are untrusted. The tool must assume inputs may attempt prompt injection, parser exploitation, resource exhaustion, data exfiltration, or false-positive manipulation.
+All document text, metadata, filenames, links, embedded instructions, parser output, and model output are untrusted. Inputs may attempt prompt injection, parser exploitation, resource exhaustion, data exfiltration, false-positive/false-negative manipulation, or model-response confusion.
 
-Required controls before integration:
+Implemented controls include:
 
-- sandbox parsers with resource and file-type limits;
-- never execute or follow instructions contained in analyzed documents;
-- combine deterministic signatures and structural checks with model review;
-- prevent analyzed content from gaining tool, network, secret, or system-prompt access;
-- require human confirmation for deletion, quarantine, blocking, or other consequential action;
-- log the detector version, rule/model version, and reason codes without storing unnecessary document content.
+- Gemini key held only by `server.mjs`; Vite no longer injects it into browser code;
+- loopback-bound local development API;
+- 512 KiB API body limit, 8 MiB uploaded-file limit, and 400,000-character extracted-text limit;
+- locally bundled PDF worker code;
+- prompt isolation that marks document text as untrusted data and rejects document-contained instructions;
+- strict model-response schema/shape validation;
+- parser/provider/model failures represented as `unknown` rather than safe/threat guesses;
+- immutable/read-only CI actions for ordinary verification.
 
-## Validation and migration gates
+## Remaining gates before any production claim
 
-Create a labelled corpus with benign documents, direct injection, indirect injection, encoded payloads, role-play attacks, poisoned retrieval chunks, and near-miss content. Report precision, recall, false-positive rate, false-negative examples, latency, and corpus limitations. Select a license before copying any module; no reuse grant was detected at the snapshot. Any IronAgent integration must be a bounded, tested ingestion-security module rather than a wholesale UI import.
+- add real authentication/authorization, tenant isolation, production rate limits, abuse controls, and deployment hardening;
+- evaluate parser sandboxing/isolation rather than assuming library parsing is safe because file size is bounded;
+- combine independent deterministic structural checks with model review where useful;
+- create a labelled corpus covering benign documents, direct/indirect injection, encoded payloads, role-play attacks, poisoned retrieval chunks, structural spoofing, parser edge cases, and near misses;
+- report precision, recall, false-positive rate, false-negative examples, latency, and corpus limitations;
+- define privacy/data-retention rules for document handling;
+- log detector/model/rule versions and reason codes without retaining unnecessary document content;
+- complete independent security review before public/sensitive deployment;
+- select a reuse license before copying modules into other products.
 
-The current Vite configuration injects the Gemini credential into browser code. Use only a restricted local-evaluation key; a server-side proxy, request authentication, rate limits, and abuse controls are required before any deployment.
+## Axiom / IronAgent boundary
+
+If this work is retained in the wider Axiom ecosystem, treat it as an **advisory ingestion signal or research fixture source**. Its output must not become an AXIOM capability grant, policy override, or execution authorization. Any future IronAgent or AXIOM integration should be a bounded tested module rather than a wholesale UI/runtime import.
+
+## Evidence boundary
+
+A green test/build/audit run proves only the repository behaviors exercised by those checks. It does not prove that model classifications are factually correct, that prompt injection is impossible, that parser libraries are exploit-free, or that the detector is enterprise-ready.
