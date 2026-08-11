@@ -33,6 +33,23 @@ Implemented controls include:
 - parser/provider/model failures represented as `unknown` rather than safe/threat guesses;
 - immutable/read-only CI actions for ordinary verification.
 
+## Dependency-remediation evidence
+
+The hardening work replaced the vulnerable locked graph with a hash-bound candidate whose only direct manifest migration is `mammoth` `1.7.2` → `1.12.1`; all other package movement is lock-resolved compatible dependency/transitive remediation.
+
+The final compact lock preserves exact registry `resolved` URLs, `integrity` hashes, executable `bin` metadata, dependency/peer/optional relationships, platform selectors, and install-script flags. A disposable read-only verification run proved that a clean `npm ci` does not rewrite it and that the resulting graph passes the repository test/build/audit boundary:
+
+- candidate workflow run `31451584264`, job `93656886514`: success;
+- 15 tests passed across parser, advisory-client, and server-contract suites;
+- production Vite build passed on Vite `6.4.3`;
+- `npm audit --omit=dev --audit-level=high`: 0 vulnerabilities;
+- `npm audit --audit-level=high`: 0 vulnerabilities;
+- committed `package.json` Git blob: `cc858668e22a2045f8abcffeb75b3caa27768116`;
+- committed `package-lock.json` Git blob: `310b16541256717997d83d5aed3725e026a1283b`;
+- compact lock SHA-256: `194aff736c7b2425b2b6d537627ec13278393b368e4f3e498e97164ed91a12c6`.
+
+The verified artifact was transferred to the feature branch by a one-shot workflow that rechecked the artifact and file hashes, re-ran install/tests/build/audits, committed only the two dependency files while deleting its temporary transfer/diagnostic workflows, and then removed its own write authority from the branch. Pull request promotion still requires an ordinary owner-authored PR CI run to independently pass on the final head.
+
 ## Remaining gates before any production claim
 
 - add real authentication/authorization, tenant isolation, production rate limits, abuse controls, and deployment hardening;
