@@ -59,7 +59,32 @@ jobs:
           echo '=== package.json candidate diff ==='
           git diff -- package.json
 
-      - name: Install exact candidate graph
+      - name: Minimize lock representation without changing resolution semantics
+        shell: bash
+        run: |
+          set -euo pipefail
+          node - <<'NODE'
+          const fs = require('fs');
+          const lock = JSON.parse(fs.readFileSync('package-lock.json', 'utf8'));
+          const keep = new Set([
+            'name', 'version', 'dependencies', 'devDependencies',
+            'optionalDependencies', 'peerDependencies', 'peerDependenciesMeta',
+            'os', 'cpu', 'hasInstallScript', 'inBundle', 'link', 'workspaces'
+          ]);
+          for (const entry of Object.values(lock.packages || {})) {
+            if (!entry || typeof entry !== 'object') continue;
+            for (const key of Object.keys(entry)) {
+              if (!keep.has(key)) delete entry[key];
+            }
+          }
+          fs.writeFileSync('package-lock.json', JSON.stringify(lock) + '\n');
+          NODE
+          echo '=== minimized lock identity ==='
+          wc -c package-lock.json
+          sha256sum package-lock.json
+          git hash-object package-lock.json
+
+      - name: Install minimized exact candidate graph
         run: npm ci
 
       - name: Check server syntax
@@ -77,10 +102,18 @@ jobs:
       - name: Audit candidate full graph
         run: npm audit --audit-level=high
 
-      - name: Upload reviewed candidate files
+      - name: Reconfirm minimized lock was not rewritten by npm ci
+        shell: bash
+        run: |
+          set -euo pipefail
+          wc -c package-lock.json
+          sha256sum package-lock.json
+          git hash-object package-lock.json
+
+      - name: Upload reviewed minimized candidate files
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.0
         with:
-          name: context-detector-dependency-candidate-${{ github.sha }}
+          name: context-detector-minimized-candidate-${{ github.sha }}
           path: |
             package.json
             package-lock.json
