@@ -1,0 +1,113 @@
+name: Apply Verified Context Candidate Once
+
+on:
+  push:
+    branches:
+      - agent/status-and-scope-2026-08
+    paths:
+      - ".github/workflows/apply-verified-candidate-once.yml"
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: context-detector-verified-candidate-apply
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out exact feature branch head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: agent/status-and-scope-2026-08
+          fetch-depth: 0
+
+      - name: Fetch and verify immutable candidate artifact
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
+          test "$(git hash-object package.json)" = "02860994f08e4c9a7e51109e86f97550b9e2eaee"
+          test "$(git hash-object package-lock.json)" = "ed71f6c987fb63d5e0289831013b47bb57323699"
+          mkdir -p "$RUNNER_TEMP/candidate"
+          gh api \
+            -H 'Accept: application/vnd.github+json' \
+            "/repos/${GITHUB_REPOSITORY}/actions/artifacts/9086502644/zip" \
+            > "$RUNNER_TEMP/candidate.zip"
+          echo '8b9486c036fdfbd1d1915b59ed53ffa60eb33983470b6665943ac4f9f8ed1e67  '"$RUNNER_TEMP/candidate.zip" | sha256sum -c -
+          unzip -q "$RUNNER_TEMP/candidate.zip" -d "$RUNNER_TEMP/candidate"
+          echo '22baa41e8316adac4b572ad7a35ab478d77c97a50ac0a773e7bf06b583405df5  '"$RUNNER_TEMP/candidate/package.json" | sha256sum -c -
+          echo '194aff736c7b2425b2b6d537627ec13278393b368e4f3e498e97164ed91a12c6  '"$RUNNER_TEMP/candidate/package-lock.json" | sha256sum -c -
+          test "$(git hash-object "$RUNNER_TEMP/candidate/package.json")" = "cc858668e22a2045f8abcffeb75b3caa27768116"
+          test "$(git hash-object "$RUNNER_TEMP/candidate/package-lock.json")" = "310b16541256717997d83d5aed3725e026a1283b"
+
+      - name: Prove manifest scope and apply candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp package.json "$RUNNER_TEMP/package.before.json"
+          node - <<'NODE'
+          const fs = require('fs');
+          const before = JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP + '/package.before.json', 'utf8'));
+          const candidate = JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP + '/candidate/package.json', 'utf8'));
+          const expected = JSON.parse(JSON.stringify(before));
+          expected.dependencies.mammoth = '1.12.1';
+          if (JSON.stringify(candidate) !== JSON.stringify(expected)) {
+            throw new Error('candidate package.json changes more than mammoth 1.7.2 -> 1.12.1');
+          }
+          NODE
+          cp "$RUNNER_TEMP/candidate/package.json" package.json
+          cp "$RUNNER_TEMP/candidate/package-lock.json" package-lock.json
+          git rm .github/workflows/context-lock-candidate.yml
+          git rm .github/workflows/apply-verified-candidate-once.yml
+          mapfile -t changed < <(git diff --name-only | sort)
+          expected=(
+            .github/workflows/apply-verified-candidate-once.yml
+            .github/workflows/context-lock-candidate.yml
+            package-lock.json
+            package.json
+          )
+          if [[ "${changed[*]}" != "${expected[*]}" ]]; then
+            printf 'unexpected changed paths:\n%s\n' "${changed[@]}"
+            exit 1
+          fi
+          test "$(git hash-object package.json)" = "cc858668e22a2045f8abcffeb75b3caa27768116"
+          test "$(git hash-object package-lock.json)" = "310b16541256717997d83d5aed3725e026a1283b"
+
+      - name: Verify exact committed candidate before push
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf node_modules dist
+          npm ci
+          node --check server.mjs
+          npm test
+          npm run build
+          npm audit --omit=dev --audit-level=high
+          npm audit --audit-level=high
+          test "$(git hash-object package.json)" = "cc858668e22a2045f8abcffeb75b3caa27768116"
+          test "$(git hash-object package-lock.json)" = "310b16541256717997d83d5aed3725e026a1283b"
+
+      - name: Commit only the verified transfer
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add package.json package-lock.json .github/workflows/context-lock-candidate.yml .github/workflows/apply-verified-candidate-once.yml
+          git diff --cached --name-only | sort > "$RUNNER_TEMP/staged.txt"
+          printf '%s\n' \
+            .github/workflows/apply-verified-candidate-once.yml \
+            .github/workflows/context-lock-candidate.yml \
+            package-lock.json \
+            package.json \
+            > "$RUNNER_TEMP/expected.txt"
+          cmp "$RUNNER_TEMP/staged.txt" "$RUNNER_TEMP/expected.txt"
+          git commit -m 'security: apply verified zero-vulnerability dependency graph'
+          git push origin HEAD:agent/status-and-scope-2026-08
