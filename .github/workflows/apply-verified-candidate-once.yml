@@ -66,10 +66,12 @@ jobs:
           cp "$RUNNER_TEMP/candidate/package-lock.json" package-lock.json
           git rm .github/workflows/context-lock-candidate.yml
           git rm .github/workflows/apply-verified-candidate-once.yml
-          mapfile -t changed < <(git diff --name-only | sort)
+          git rm .github/workflows/diagnose-verified-candidate-apply.yml
+          mapfile -t changed < <(git diff --name-only HEAD | sort)
           expected=(
             .github/workflows/apply-verified-candidate-once.yml
             .github/workflows/context-lock-candidate.yml
+            .github/workflows/diagnose-verified-candidate-apply.yml
             package-lock.json
             package.json
           )
@@ -100,11 +102,12 @@ jobs:
           set -euo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add package.json package-lock.json .github/workflows/context-lock-candidate.yml .github/workflows/apply-verified-candidate-once.yml
+          git add package.json package-lock.json
           git diff --cached --name-only | sort > "$RUNNER_TEMP/staged.txt"
           printf '%s\n' \
             .github/workflows/apply-verified-candidate-once.yml \
             .github/workflows/context-lock-candidate.yml \
+            .github/workflows/diagnose-verified-candidate-apply.yml \
             package-lock.json \
             package.json \
             > "$RUNNER_TEMP/expected.txt"
