@@ -8,13 +8,16 @@ on:
       - ".github/workflows/context-lock-candidate.yml"
       - "package.json"
       - "package-lock.json"
+  pull_request:
+    branches:
+      - agent/status-and-scope-2026-08
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: context-detector-read-only-lock-candidate
+  group: context-detector-read-only-lock-candidate-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
