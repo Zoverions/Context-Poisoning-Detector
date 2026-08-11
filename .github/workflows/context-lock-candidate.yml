@@ -59,7 +59,7 @@ jobs:
           echo '=== package.json candidate diff ==='
           git diff -- package.json
 
-      - name: Minimize lock representation without changing resolution semantics
+      - name: Minimize lock representation without weakening resolution integrity
         shell: bash
         run: |
           set -euo pipefail
@@ -67,9 +67,10 @@ jobs:
           const fs = require('fs');
           const lock = JSON.parse(fs.readFileSync('package-lock.json', 'utf8'));
           const keep = new Set([
-            'name', 'version', 'dependencies', 'devDependencies',
-            'optionalDependencies', 'peerDependencies', 'peerDependenciesMeta',
-            'os', 'cpu', 'hasInstallScript', 'inBundle', 'link', 'workspaces',
+            'name', 'version', 'resolved', 'integrity',
+            'dependencies', 'devDependencies', 'optionalDependencies',
+            'peerDependencies', 'peerDependenciesMeta', 'os', 'cpu',
+            'hasInstallScript', 'inBundle', 'link', 'workspaces',
             'dev', 'devOptional', 'optional'
           ]);
           for (const entry of Object.values(lock.packages || {})) {
