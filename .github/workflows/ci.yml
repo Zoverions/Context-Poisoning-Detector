@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: context-poisoning-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install exact dependencies
+        run: npm ci
+      - name: Check server syntax
+        run: node --check server.mjs
+      - name: Test advisory and ingestion boundaries
+        run: npm test
+      - name: Build production bundle
+        run: npm run build
+      - name: Audit locked dependency graph
+        shell: bash
+        run: |
+          set +e
+          echo '=== Production dependency audit (high+) ==='
+          npm audit --omit=dev --audit-level=high
+          production_status=$?
+          echo '=== Full locked graph audit (high+) ==='
+          npm audit --audit-level=high
+          full_status=$?
+          echo "production_audit_status=${production_status}"
+          echo "full_audit_status=${full_status}"
+          if (( production_status != 0 || full_status != 0 )); then
+            exit 1
+          fi
