@@ -69,7 +69,8 @@ jobs:
           const keep = new Set([
             'name', 'version', 'dependencies', 'devDependencies',
             'optionalDependencies', 'peerDependencies', 'peerDependenciesMeta',
-            'os', 'cpu', 'hasInstallScript', 'inBundle', 'link', 'workspaces'
+            'os', 'cpu', 'hasInstallScript', 'inBundle', 'link', 'workspaces',
+            'dev', 'devOptional', 'optional'
           ]);
           for (const entry of Object.values(lock.packages || {})) {
             if (!entry || typeof entry !== 'object') continue;
@@ -83,6 +84,7 @@ jobs:
           wc -c package-lock.json
           sha256sum package-lock.json
           git hash-object package-lock.json
+          cp package-lock.json "$RUNNER_TEMP/minimized.before-ci.lock"
 
       - name: Install minimized exact candidate graph
         run: npm ci
@@ -106,6 +108,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          cmp package-lock.json "$RUNNER_TEMP/minimized.before-ci.lock"
           wc -c package-lock.json
           sha256sum package-lock.json
           git hash-object package-lock.json
