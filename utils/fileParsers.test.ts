@@ -1,4 +1,5 @@
 import { parseFile } from './fileParsers';
+import { JSDOM } from 'jsdom';
 import { describe, it, expect, vi } from 'vitest';
 
 // Mock pdfjs-dist
@@ -26,16 +27,10 @@ vi.mock('mammoth', () => ({
     }
 }));
 
-// Mock DOMParser
-global.DOMParser = class {
-    parseFromString(str: string) {
-        return {
-            body: {
-                textContent: str.replace(/<[^>]*>/g, '')
-            }
-        } as any;
-    }
-} as any;
+// Use a real standards-based parser in the test environment. A regex-based
+// HTML stripper both misrepresents browser behavior and creates a misleading
+// sanitizer pattern for security analysis.
+global.DOMParser = new JSDOM('').window.DOMParser;
 
 
 describe('parseFile', () => {
